@@ -256,6 +256,7 @@ macro_rules! sign_key_impl {
             ctx: &DomainContext, id: &HashIdentifier, hv: &[u8], sig: &mut [u8])
         {
             let n = 1usize << self.logn;
+            assert!(sig.len() == signature_size(self.logn));
 
             #[cfg(all(not(feature = "no_avx2"), not(feature = "fp_emu"), target_arch = "x86_64"))]
             if self.use_avx2 {
@@ -453,7 +454,10 @@ fn sign_inner<T: CryptoRng + RngCore, P: PRNG>(logn: u32, rng: &mut T,
     assert!(g.len() == n);
     assert!(F.len() == n);
     assert!(G.len() == n);
-    assert!(sig.len() == signature_size(logn));
+    // FALCON-DET: a larger buffer is allowed so det_sign_compressed can
+    // encode up to round-3's compressed maximum; sign() still requires the
+    // exact size.
+    assert!(sig.len() >= signature_size(logn));
 
     // Special behaviour for the original Falcon algorithm (for test
     // reproducibility). TODO: remove when switching to final test vectors.

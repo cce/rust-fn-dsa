@@ -18,7 +18,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use fn_dsa_comm::shake::SHAKE256;
-use fn_dsa_comm::{signature_size, DomainContext, HashIdentifier, PRNG};
+use fn_dsa_comm::{DomainContext, HashIdentifier, PRNG};
 use fn_dsa_comm::{CryptoRng, RngCore, RngError};
 
 use super::{decode_inner, flr, sign_inner, sign_key_size, vrfy_key_size};
@@ -188,9 +188,9 @@ impl CryptoRng for DetRng {}
 /// Produces a deterministic Falcon signature in the unsalted compressed
 /// format, as `falcon_det512_sign_compressed` does.
 ///
-/// The returned buffer is the fixed-size encoding: the variable-length form
-/// that `algorand/falcon` emits is the same bytes with the trailing zeros
-/// removed.
+/// The returned buffer is zero-padded to round-3's compressed maximum: the
+/// variable-length form that `algorand/falcon` emits is the same bytes with
+/// the trailing zeros removed.
 pub fn det_sign_compressed(privkey: &[u8], msg: &[u8]) -> Option<Vec<u8>> {
     if privkey.is_empty() || (privkey[0] & 0xF0) != 0x50 {
         return None;
@@ -229,7 +229,11 @@ pub fn det_sign_compressed(privkey: &[u8], msg: &[u8]) -> Option<Vec<u8>> {
     let id = HashIdentifier(&[0xFFu8]);
     let ctx = DomainContext(b"");
 
-    let mut sig = vec![0u8; signature_size(logn)];
+    // Round-3's compressed format has only a maximum length
+    // (FALCON_SIG_COMPRESSED_MAXSIZE), larger than the padded size; a
+    // signature between the two is kept there, not retried.
+    let mut sig = vec![0u8; ((((11usize << logn)
+        + (101 >> (10 - logn))) + 7) >> 3) + 41];
     let mut tmp_i16 = vec![0i16; 2 * n];
     let mut tmp_u16b = vec![0u16; 2 * n];
     let mut tmp_flr = vec![flr::FLR::ZERO; 10 * n];
