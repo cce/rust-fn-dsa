@@ -37,16 +37,17 @@ pub(crate) fn flc_mul(x_re: FLR, x_im: FLR, y_re: FLR, y_im: FLR)
     (x_re * y_re - x_im * y_im, x_re * y_im + x_im * y_re)
 }
 
-/* unused
 // Complex division.
+// FALCON-DET: no longer unused -- poly_LDL_fft needs it to match round-3
+// Falcon's FPC_DIV.
 #[inline(always)]
+#[allow(dead_code)]
 fn flc_div(x_re: FLR, x_im: FLR, y_re: FLR, y_im: FLR) -> (FLR, FLR) {
     let m = FLR::ONE / (y_re.square() + y_im.square());
     let b_re = m * y_re;
     let b_im = m * -y_im;
     flc_mul(x_re, x_im, b_re, b_im)
 }
-*/
 
 // Convert a polynomial from normal representation to FFT.
 pub(crate) fn FFT(logn: u32, f: &mut [FLR]) {
@@ -56,7 +57,7 @@ pub(crate) fn FFT(logn: u32, f: &mut [FLR]) {
     // that first iteration is a no-op, hence we can start the computation
     // at the second iteration.
 
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -193,10 +194,10 @@ pub(crate) fn FFT(logn: u32, f: &mut [FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         assert!(logn >= 1);
         let n = 1usize << logn;
@@ -241,7 +242,7 @@ pub(crate) fn iFFT(logn: u32, f: &mut [FLR]) {
     // Since the last iteration is skipped, we have to perform only
     // a division by n/2 at the end.
 
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -425,10 +426,10 @@ pub(crate) fn iFFT(logn: u32, f: &mut [FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         assert!(logn >= 1);
         let n = 1usize << logn;
@@ -469,7 +470,7 @@ pub(crate) fn iFFT(logn: u32, f: &mut [FLR]) {
 
 // Set polynomial d from polynomial f with small coefficients.
 pub(crate) fn poly_set_small(logn: u32, d: &mut [FLR], f: &[i8]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -528,10 +529,10 @@ pub(crate) fn poly_set_small(logn: u32, d: &mut [FLR], f: &[i8]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         for i in 0..(1usize << logn) {
             d[i] = FLR::from_i32(f[i] as i32);
@@ -541,7 +542,7 @@ pub(crate) fn poly_set_small(logn: u32, d: &mut [FLR], f: &[i8]) {
 
 // Add polynomial b to polynomial a.
 pub(crate) fn poly_add(logn: u32, a: &mut [FLR], b: &[FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -584,10 +585,10 @@ pub(crate) fn poly_add(logn: u32, a: &mut [FLR], b: &[FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         for i in 0..(1usize << logn) {
             a[i] += b[i];
@@ -597,7 +598,7 @@ pub(crate) fn poly_add(logn: u32, a: &mut [FLR], b: &[FLR]) {
 
 // Subtract polynomial b from polynomial a.
 pub(crate) fn poly_sub(logn: u32, a: &mut [FLR], b: &[FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -640,10 +641,10 @@ pub(crate) fn poly_sub(logn: u32, a: &mut [FLR], b: &[FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         for i in 0..(1usize << logn) {
             a[i] -= b[i];
@@ -653,7 +654,7 @@ pub(crate) fn poly_sub(logn: u32, a: &mut [FLR], b: &[FLR]) {
 
 // Negate polynomial a.
 pub(crate) fn poly_neg(logn: u32, a: &mut [FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -691,10 +692,10 @@ pub(crate) fn poly_neg(logn: u32, a: &mut [FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         for i in 0..(1usize << logn) {
             a[i] = -a[i];
@@ -716,7 +717,7 @@ pub(crate) fn poly_adj_fft(logn: u32, a: &mut [FLR]) {
 // Multiply polynomial a with polynomial b. The polynomials must be in
 // FFT representation.
 pub(crate) fn poly_mul_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -790,10 +791,10 @@ pub(crate) fn poly_mul_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         for i in 0..hn {
@@ -807,7 +808,7 @@ pub(crate) fn poly_mul_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
 // Multiply polynomial a with the adjoint of polynomial b. The polynomials
 // must be in FFT representation.
 pub(crate) fn poly_muladj_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -881,10 +882,10 @@ pub(crate) fn poly_muladj_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         for i in 0..hn {
@@ -899,7 +900,7 @@ pub(crate) fn poly_muladj_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
 // FFT representation. Since the result is a self-adjoint polynomial,
 // coefficients n/2 to n-1 are set to zero.
 pub(crate) fn poly_mulownadj_fft(logn: u32, a: &mut [FLR]) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -955,10 +956,10 @@ pub(crate) fn poly_mulownadj_fft(logn: u32, a: &mut [FLR]) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         for i in 0..hn {
@@ -970,7 +971,7 @@ pub(crate) fn poly_mulownadj_fft(logn: u32, a: &mut [FLR]) {
 
 // Multiply polynomial a with a real constant x.
 pub(crate) fn poly_mulconst(logn: u32, a: &mut [FLR], x: FLR) {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -1011,10 +1012,10 @@ pub(crate) fn poly_mulconst(logn: u32, a: &mut [FLR], x: FLR) {
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         for i in 0..(1usize << logn) {
             a[i] *= x;
@@ -1107,7 +1108,7 @@ pub(crate) fn poly_div_selfadj_fft(logn: u32, a: &mut [FLR], b: &[FLR]) {
 pub(crate) fn poly_LDL_fft(logn: u32,
     g00: &[FLR], g01: &mut [FLR], g11: &mut [FLR])
 {
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -1201,21 +1202,24 @@ pub(crate) fn poly_LDL_fft(logn: u32,
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
+        // FALCON-DET: round-3 Falcon computes mu with a full complex division
+        // (FPC_DIV), i.e. 1/(re^2+im^2) then a multiply. g00 is self-adjoint,
+        // so dividing by g00_re directly is mathematically identical but
+        // rounds differently.
         let hn = 1usize << (logn - 1);
         for i in 0..hn {
-            // g00 and g11 are self-adjoint
-            let g00_re = g00[i];
+            let (g00_re, g00_im) = (g00[i], g00[i + hn]);
             let (g01_re, g01_im) = (g01[i], g01[i + hn]);
-            let g11_re = g11[i];
-            let inv_g00_re = FLR::ONE / g00_re;
-            let (mu_re, mu_im) = (g01_re * inv_g00_re, g01_im * inv_g00_re);
-            let zo_re = mu_re * g01_re + mu_im * g01_im;
+            let (g11_re, g11_im) = (g11[i], g11[i + hn]);
+            let (mu_re, mu_im) = flc_div(g01_re, g01_im, g00_re, g00_im);
+            let (zo_re, zo_im) = flc_mul(mu_re, mu_im, g01_re, -g01_im);
             g11[i] = g11_re - zo_re;
+            g11[i + hn] = g11_im - zo_im;
             g01[i] = mu_re;
             g01[i + hn] = -mu_im;
         }
@@ -1257,7 +1261,7 @@ pub(crate) fn poly_split_fft(logn: u32,
         return;
     }
 
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -1339,10 +1343,10 @@ pub(crate) fn poly_split_fft(logn: u32,
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         let qn = hn >> 1;
@@ -1376,7 +1380,7 @@ pub(crate) fn poly_split_selfadj_fft(logn: u32,
         return;
     }
 
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -1438,10 +1442,10 @@ pub(crate) fn poly_split_selfadj_fft(logn: u32,
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         let qn = hn >> 1;
@@ -1473,7 +1477,7 @@ pub(crate) fn poly_merge_fft(logn: u32,
         return;
     }
 
-    #[cfg(target_feature = "sse2")]
+    #[cfg(all(target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::*;
@@ -1538,10 +1542,10 @@ pub(crate) fn poly_merge_fft(logn: u32,
         }
     }
 
-    #[cfg(not(any(
+    #[cfg(any(feature = "fp_emu", not(any(
         target_feature = "sse2",
         target_arch = "aarch64",
-        target_arch = "arm64ec")))]
+        target_arch = "arm64ec"))))]
     {
         let hn = 1usize << (logn - 1);
         let qn = hn >> 1;

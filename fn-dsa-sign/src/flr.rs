@@ -63,19 +63,25 @@ use zeroize::DefaultIsZeroes;
 //    thus should take care not to leak information through
 //    side-channels, in particular timing.
 
-#[cfg(any(
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "arm64ec",
-    target_arch = "riscv64"))]
-#[path = "flr_native.rs"]
-mod backend;
-
-#[cfg(not(any(
+// FALCON-DET: the "fp_emu" feature forces the emulated backend on every
+// target. algorand/falcon builds with FALCON_FPEMU = 1, so the emulated code
+// is what produces the deployed signatures; the native backend agrees with it
+// on every operation the signing path uses, but differs on degenerate inputs
+// (the sign of a zero quotient, and expm_p63 at ccs = 1) where the reference
+// clamps and IEEE-754 does not.
+#[cfg(all(not(feature = "fp_emu"), any(
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm64ec",
     target_arch = "riscv64")))]
+#[path = "flr_native.rs"]
+mod backend;
+
+#[cfg(any(feature = "fp_emu", not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm64ec",
+    target_arch = "riscv64"))))]
 #[path = "flr_emu.rs"]
 mod backend;
 

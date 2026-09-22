@@ -5,7 +5,7 @@ use super::flr::FLR;
 use super::poly::*;
 use fn_dsa_comm::PRNG;
 
-#[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+#[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
 use core::arch::x86::*;
 
 // ========================================================================
@@ -46,17 +46,22 @@ const INV_2SQRSIGMA0: FLR = FLR::scaled(5435486223186882, -55);
 // values, the corresponding constant in the C code is 1 bit higher than
 // here.
 const INV_SIGMA: [FLR; 11] = [
+    // FALCON-DET: one ULP higher than the values this table held, i.e.
+    // exactly the fpr_inv_sigma[] constants of the reference C code --
+    // see the note above. Deterministic Falcon must reproduce the C
+    // bit for bit, so the C values are used here.
     FLR::ZERO, // unused
-    FLR::scaled(7961475618707097, -60),   // 0.0069054793295940881528
-    FLR::scaled(7851656902127320, -60),   // 0.0068102267767177965681
-    FLR::scaled(7746260754658859, -60),   // 0.0067188101910722700565
-    FLR::scaled(7595833604889141, -60),   // 0.0065883354370073655600
-    FLR::scaled(7453842886538220, -60),   // 0.0064651781207602890978
-    FLR::scaled(7319528409832599, -60),   // 0.0063486788828078985744
-    FLR::scaled(7192222552237877, -60),   // 0.0062382586529084365056
-    FLR::scaled(7071336252758509, -60),   // 0.0061334065020930252290
-    FLR::scaled(6956347512113097, -60),   // 0.0060336696681577231923
-    FLR::scaled(6846791885593314, -60),   // 0.0059386453095331150985
+    FLR::scaled(7961475618707098, -60),   // 0.0069054793295940881528
+    FLR::scaled(7851656902127321, -60),   // 0.0068102267767177965681
+    FLR::scaled(7746260754658860, -60),   // 0.0067188101910722700565
+    FLR::scaled(7595833604889142, -60),   // 0.0065883354370073655600
+    FLR::scaled(7453842886538221, -60),   // 0.0064651781207602890978
+    FLR::scaled(7319528409832600, -60),   // 0.0063486788828078985744
+    FLR::scaled(7192222552237878, -60),   // 0.0062382586529084365056
+    FLR::scaled(7071336252758510, -60),   // 0.0061334065020930252290
+    FLR::scaled(6956347512113098, -60),   // 0.0060336696681577231923
+    FLR::scaled(6846791885593315, -60),   // 0.0059386453095331150985
+
 ];
 const SIGMA_MIN: [FLR; 11] = [
     FLR::ZERO, // unused
@@ -109,7 +114,7 @@ impl<T: PRNG> Sampler<T> {
     }
 
     // SSE2 variant of next() (for 32-bit x86).
-    #[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+    #[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
     #[allow(dead_code)]
     pub(crate) fn next(&mut self, mu: FLR, isigma: FLR) -> i32 {
         unsafe {
@@ -122,7 +127,7 @@ impl<T: PRNG> Sampler<T> {
     // Sample the next small integer, using the proper Gaussian
     // distribution with centre mu and inverse of the standard
     // deviation isigma.
-    #[cfg(not(all(target_arch = "x86", target_feature = "sse2")))]
+    #[cfg(not(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu"))))]
     pub(crate) fn next(&mut self, mu: FLR, isigma: FLR) -> i32 {
 
         // Centre is mu. We split it into s + r, for an integer
@@ -186,7 +191,7 @@ impl<T: PRNG> Sampler<T> {
         }
     }
 
-    #[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+    #[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe fn next_sse2(&mut self, mu: __m128d, isigma: __m128d) -> i32 {
         // 0.5
         let h: __m128d = core::mem::transmute([
@@ -255,7 +260,7 @@ impl<T: PRNG> Sampler<T> {
     }
 
     // Sample a bit with probability ccs*exp(-x) (with x >= 0).
-    #[cfg(not(all(target_arch = "x86", target_feature = "sse2")))]
+    #[cfg(not(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu"))))]
     fn ber_exp(&mut self, x: FLR, ccs: FLR) -> bool {
         // Reduce x modulo log(2): x = s*log(2) + r, with s an integer,
         // and 0 <= r < log(2). We can use trunc() because x >= 0
@@ -323,7 +328,7 @@ impl<T: PRNG> Sampler<T> {
     }
 
     // Variant of ber_exp() for 32-bit x86 with SSE2.
-    #[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+    #[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe fn ber_exp_sse2(&mut self, x: __m128d, ccs: __m128d) -> bool {
         let log2: __m128d = core::mem::transmute([LOG2, LOG2]);
         let invlog2: __m128d = core::mem::transmute([INV_LOG2, INV_LOG2]);
@@ -355,7 +360,7 @@ impl<T: PRNG> Sampler<T> {
     }
 
     // Variant of expm_p63() for 32-bit x86 with SSE2.
-    #[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+    #[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
     unsafe fn expm_p63_sse2(r: __m128d, ccs: __m128d) -> u64 {
         #[inline(always)]
         unsafe fn mtwop63(x: __m128d) -> i64 {
@@ -421,7 +426,7 @@ impl<T: PRNG> Sampler<T> {
         g00: &mut [FLR], g01: &mut [FLR], g11: &mut [FLR], tmp: &mut [FLR])
     {
         // When logn = 1, arrays have length 2; we unroll the last steps.
-        #[cfg(all(target_arch = "x86", target_feature = "sse2"))]
+        #[cfg(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu")))]
         if logn == 1 {
             unsafe {
                 use core::mem::transmute;
@@ -497,7 +502,7 @@ impl<T: PRNG> Sampler<T> {
             }
         }
 
-        #[cfg(not(all(target_arch = "x86", target_feature = "sse2")))]
+        #[cfg(not(all(target_arch = "x86", target_feature = "sse2", not(feature = "fp_emu"))))]
         if logn == 1 {
             // Decompose G into LDL. g00 and g11 are self-adjoint and thus
             // use one coefficient each.

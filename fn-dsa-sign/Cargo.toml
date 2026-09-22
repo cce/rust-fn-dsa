@@ -22,6 +22,8 @@ hex.workspace = true
 default = []
 small_context = []
 no_avx2 = []
+# FALCON-DET: force the emulated floating-point backend on every target.
+fp_emu = []
 div_emu = []
 sqrt_emu = []
 shake256x4 = []
